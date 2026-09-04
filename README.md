@@ -30,12 +30,16 @@ source .venv/bin/activate
 python service-a/app.py
 ```
 
+![Service A running](readme-imgs/running-process-a.png)
+
 Terminal 2:
 
 ```bash
 source .venv/bin/activate
 python service-b/app.py
 ```
+
+![Service B running](readme-imgs/running-process-b.png)
 
 Each terminal prints one log line per request in the form
 `service=<A|B> endpoint=<path> status=<http_code> latency_ms=<n>`
