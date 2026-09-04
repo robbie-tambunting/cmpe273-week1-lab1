@@ -150,16 +150,9 @@ needed.
 
 ## What makes this distributed?
 
-Both services are executed on different processes with their own ismemory
+Services A and B simulate two software services working together to achieve a goal. In our lab, we can define this as a distributed system because:
 
-Service A and Service B are separate OS processes with their own memory,
-communicating only over the network via HTTP — neither can see or touch the
-other's internal state directly, and the network between them can be slow or
-simply absent. That means partial failure is a real, expected condition
-rather than an edge case: A can crash, hang, or lag while B keeps running,
-and B has to notice and handle that explicitly (the 1s timeout and the 503
-fallback) instead of assuming a call will always return quickly or at all.
-Each service can also be deployed, restarted, or scaled independently of the
-other, which is the whole point of splitting them in the first place — but it
-only pays off if every cross-service call defends against the other side
-being unavailable.
+- Both services are executed on different processes with their own isolated state and memory (service A can't directly alter or see service B's state. And vice-versa)
+- Services A and B communicate over a network via http
+
+Each of these services can be deployed, worked on, and scaled independently. When partial failure happens and service A crashes, service B must notice this and determine what to do. In this case, service B implements a 1 second timeout and 503 error fallback.

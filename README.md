@@ -4,31 +4,29 @@ Two independent Flask processes: Service A (port 8080) is a simple echo API,
 Service B (port 8081) calls Service A over HTTP with a timeout.
 
 - **Service A** — `GET /health`, `GET /echo?msg=...`, `GET /slow?seconds=N`
-(sleeps `N` seconds, clamped 0-10; exists only to trigger B's timeout).
+  (sleeps `N` seconds, clamped 0-10; exists only to trigger B's timeout).
 - **Service B** — `GET /health`, `GET /call-echo?msg=...` (calls A's `/echo`),
-`GET /call-slow?seconds=N` (calls A's `/slow`). Every call to A goes through
-a shared 1-second `requests` timeout; any failure — timeout, refused
-connection, or an error status from A — is logged and turned into a `503` .
-
-
+  `GET /call-slow?seconds=N` (calls A's `/slow`). Every call to A goes through
+  a shared 1-second `requests` timeout; any failure — timeout, refused
+  connection, or an error status from A — is logged and turned into a `503` .
 
 ## API Documentation
 
 ### Service A (`:8080`)
 
-| Method | Path | Query params | Response |
-| --- | --- | --- | --- |
-| GET | `/health` | — | `200 {"status":"ok"}` |
-| GET | `/echo` | `msg` (string) | `200 {"echo":"<msg>"}` |
-| GET | `/slow` | `seconds` (number, clamped 0-10, default 2) | `200 {"slept":<seconds>}`, or `400 {"error":"seconds must be a number"}` |
+| Method | Path      | Query params                                | Response                                                                 |
+| ------ | --------- | ------------------------------------------- | ------------------------------------------------------------------------ |
+| GET    | `/health` | —                                           | `200 {"status":"ok"}`                                                    |
+| GET    | `/echo`   | `msg` (string)                              | `200 {"echo":"<msg>"}`                                                   |
+| GET    | `/slow`   | `seconds` (number, clamped 0-10, default 2) | `200 {"slept":<seconds>}`, or `400 {"error":"seconds must be a number"}` |
 
 ### Service B (`:8081`)
 
-| Method | Path | Query params | Response |
-| --- | --- | --- | --- |
-| GET | `/health` | — | `200 {"status":"ok"}` |
-| GET | `/call-echo` | `msg` (string) | `200 {"service_b":"ok","service_a":{"echo":"<msg>"}}`, or `503 {"service_b":"error","service_a":"unavailable","error":"<reason>"}` |
-| GET | `/call-slow` | `seconds` (number, default 2) | Same shape as `/call-echo`; almost always `503` since A's default sleep (2s) exceeds B's 1s timeout |
+| Method | Path         | Query params                  | Response                                                                                                                           |
+| ------ | ------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/health`    | —                             | `200 {"status":"ok"}`                                                                                                              |
+| GET    | `/call-echo` | `msg` (string)                | `200 {"service_b":"ok","service_a":{"echo":"<msg>"}}`, or `503 {"service_b":"error","service_a":"unavailable","error":"<reason>"}` |
+| GET    | `/call-slow` | `seconds` (number, default 2) | Same shape as `/call-echo`; almost always `503` since A's default sleep (2s) exceeds B's 1s timeout                                |
 
 `/call-echo` and `/call-slow` proxy to Service A with a 1-second timeout;
 any timeout, refused connection, or non-2xx from A is caught and returned as
@@ -150,6 +148,11 @@ HTTP/1.1 200 OK
 Restarting Service A recovers `/call-echo` immediately, with no restart of B
 needed.
 
-
-
 ## What makes this distributed?
+
+Services A and B simulate two software services working together to achieve a goal. In our lab, we can define this as a distributed system because:
+
+- Both services are executed on different processes with their own isolated state and memory (service A can't directly alter or see service B's state. And vice-versa)
+- Services A and B communicate over a network via http
+
+Each of these services can be deployed, worked on, and scaled independently. When partial failure happens and service A crashes, service B must notice this and determine what to do. In this case, service B implements a 1 second timeout and 503 error fallback.
