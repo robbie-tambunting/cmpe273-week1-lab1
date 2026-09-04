@@ -10,6 +10,28 @@ Service B (port 8081) calls Service A over HTTP with a timeout.
   a shared 1-second `requests` timeout; any failure — timeout, refused
   connection, or an error status from A — is logged and turned into a `503`.
 
+## API Documentation
+
+### Service A (`:8080`)
+
+| Method | Path | Query params | Response |
+| --- | --- | --- | --- |
+| GET | `/health` | — | `200 {"status":"ok"}` |
+| GET | `/echo` | `msg` (string) | `200 {"echo":"<msg>"}` |
+| GET | `/slow` | `seconds` (number, clamped 0-10, default 2) | `200 {"slept":<seconds>}`, or `400 {"error":"seconds must be a number"}` |
+
+### Service B (`:8081`)
+
+| Method | Path | Query params | Response |
+| --- | --- | --- | --- |
+| GET | `/health` | — | `200 {"status":"ok"}` |
+| GET | `/call-echo` | `msg` (string) | `200 {"service_b":"ok","service_a":{"echo":"<msg>"}}`, or `503 {"service_b":"error","service_a":"unavailable","error":"<reason>"}` |
+| GET | `/call-slow` | `seconds` (number, default 2) | Same shape as `/call-echo`; almost always `503` since A's default sleep (2s) exceeds B's 1s timeout |
+
+`/call-echo` and `/call-slow` proxy to Service A with a 1-second timeout;
+any timeout, refused connection, or non-2xx from A is caught and returned as
+`503` instead of crashing or hanging Service B.
+
 ## How to run locally
 
 One shared virtualenv for both services (two terminals, one process each):
@@ -127,3 +149,17 @@ Restarting Service A recovers `/call-echo` immediately, with no restart of B
 needed.
 
 ## What makes this distributed?
+
+Both services are executed on different processes with their own ismemory
+
+Service A and Service B are separate OS processes with their own memory,
+communicating only over the network via HTTP — neither can see or touch the
+other's internal state directly, and the network between them can be slow or
+simply absent. That means partial failure is a real, expected condition
+rather than an edge case: A can crash, hang, or lag while B keeps running,
+and B has to notice and handle that explicitly (the 1s timeout and the 503
+fallback) instead of assuming a call will always return quickly or at all.
+Each service can also be deployed, restarted, or scaled independently of the
+other, which is the whole point of splitting them in the first place — but it
+only pays off if every cross-service call defends against the other side
+being unavailable.
