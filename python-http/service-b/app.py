@@ -35,17 +35,14 @@ def health():
 
 @app.get("/call-echo")
 def call_echo():
-    start = time.time()
     msg = request.args.get("msg", "")
-    try:
-        r = requests.get(f"{SERVICE_A}/echo", params={"msg": msg}, timeout=1.0)
-        r.raise_for_status()
-        data = r.json()
-        logging.info(f'service=B endpoint=/call-echo status=ok latency_ms={int((time.time()-start)*1000)}')
-        return jsonify(service_b="ok", service_a=data)
-    except Exception as e:
-        logging.info(f'service=B endpoint=/call-echo status=error error="{str(e)}" latency_ms={int((time.time()-start)*1000)}')
-        return jsonify(service_b="ok", service_a="unavailable", error=str(e)), 503
+    return call_service_a("/echo", {"msg": msg}, "/call-echo")
+
+@app.get("/call-slow")
+def call_slow():
+    # Calls A's deliberately slow endpoint so the timeout above can be observed.
+    seconds = request.args.get("seconds", "2")
+    return call_service_a("/slow", {"seconds": seconds}, "/call-slow")
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8081)
