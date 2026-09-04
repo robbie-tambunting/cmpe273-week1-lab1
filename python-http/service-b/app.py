@@ -29,6 +29,8 @@ def call_service_a(path, params, endpoint):
 
 @app.get("/health")
 def health():
+    start = time.time()
+    logging.info(f'service=B endpoint=/health status=200 latency_ms={int((time.time()-start)*1000)}')
     return jsonify(status="ok")
 
 @app.get("/call-echo")
